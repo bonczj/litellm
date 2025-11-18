@@ -155,6 +155,7 @@ _custom_logger_compatible_callbacks_literal = Literal[
     "gitlab",
     "cloudzero",
     "posthog",
+    "newrelic",
 ]
 configured_cold_storage_logger: Optional[
     _custom_logger_compatible_callbacks_literal
