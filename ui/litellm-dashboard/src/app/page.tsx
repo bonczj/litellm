@@ -27,6 +27,7 @@ import CacheDashboard from "@/components/cache_dashboard";
 import { getUiConfig, proxyBaseUrl, setGlobalLitellmHeaderName } from "@/components/networking";
 import { Organization } from "@/components/networking";
 import GuardrailsPanel from "@/components/guardrails";
+import AgentsPanel from "@/components/agents";
 import PromptsPanel from "@/components/prompts";
 import TransformRequestPanel from "@/components/transform_request";
 import { fetchUserModels } from "@/components/organisms/create_key_button";
@@ -35,11 +36,13 @@ import { MCPServers } from "@/components/mcp_tools";
 import TagManagement from "@/components/tag_management";
 import VectorStoreManagement from "@/components/vector_store_management";
 import UIThemeSettings from "@/components/ui_theme_settings";
+import { CostTrackingSettings } from "@/components/CostTrackingSettings";
 import { UiLoadingSpinner } from "@/components/ui/ui-loading-spinner";
 import { cx } from "@/lib/cva.config";
 import useFeatureFlags from "@/hooks/useFeatureFlags";
 import SidebarProvider from "@/app/(dashboard)/components/SidebarProvider";
 import OldTeams from "@/components/OldTeams";
+import { SearchTools } from "@/components/search_tools";
 
 function getCookie(name: string) {
   // Safer cookie read + decoding; handles '=' inside values
@@ -103,6 +106,7 @@ function formatUserRole(userRole: string) {
 interface ProxySettings {
   PROXY_BASE_URL: string;
   PROXY_LOGOUT_URL: string;
+  LITELLM_UI_API_DOC_BASE_URL?: string | null;
 }
 
 const queryClient = new QueryClient();
@@ -364,6 +368,10 @@ export default function CreateKeyPage() {
                     token={token}
                     accessToken={accessToken}
                     disabledPersonalKeyCreation={disabledPersonalKeyCreation}
+                    proxySettings={{
+                      PROXY_BASE_URL: proxySettings.PROXY_BASE_URL,
+                      LITELLM_UI_API_DOC_BASE_URL: proxySettings.LITELLM_UI_API_DOC_BASE_URL,
+                    }}
                   />
                 ) : page == "users" ? (
                   <ViewUserDashboard
@@ -413,6 +421,8 @@ export default function CreateKeyPage() {
                   <BudgetPanel accessToken={accessToken} />
                 ) : page == "guardrails" ? (
                   <GuardrailsPanel accessToken={accessToken} userRole={userRole} />
+                ) : page == "agents" ? (
+                  <AgentsPanel accessToken={accessToken} userRole={userRole} />
                 ) : page == "prompts" ? (
                   <PromptsPanel accessToken={accessToken} userRole={userRole} />
                 ) : page == "transform-request" ? (
@@ -426,6 +436,8 @@ export default function CreateKeyPage() {
                   />
                 ) : page == "ui-theme" ? (
                   <UIThemeSettings userID={userID} userRole={userRole} accessToken={accessToken} />
+                ) : page == "cost-tracking-settings" ? (
+                  <CostTrackingSettings userID={userID} userRole={userRole} accessToken={accessToken} />
                 ) : page == "model-hub-table" ? (
                   <ModelHubTable
                     accessToken={accessToken}
@@ -447,6 +459,7 @@ export default function CreateKeyPage() {
                     userRole={userRole}
                     accessToken={accessToken}
                     modelData={modelData}
+                    premiumUser={premiumUser}
                   />
                 ) : page == "logs" ? (
                   <SpendLogsTable
@@ -459,6 +472,8 @@ export default function CreateKeyPage() {
                   />
                 ) : page == "mcp-servers" ? (
                   <MCPServers accessToken={accessToken} userRole={userRole} userID={userID} />
+                ) : page == "search-tools" ? (
+                  <SearchTools accessToken={accessToken} userRole={userRole} userID={userID} />
                 ) : page == "tag-management" ? (
                   <TagManagement accessToken={accessToken} userRole={userRole} userID={userID} />
                 ) : page == "vector-stores" ? (
@@ -469,6 +484,7 @@ export default function CreateKeyPage() {
                     userRole={userRole}
                     accessToken={accessToken}
                     teams={(teams as Team[]) ?? []}
+                    organizations={(organizations as Organization[]) ?? []}
                     premiumUser={premiumUser}
                   />
                 ) : (
