@@ -76,6 +76,7 @@ class CustomLoggerRegistry:
         "langfuse_otel": OpenTelemetry,
         "arize_phoenix": OpenTelemetry,
         "langtrace": OpenTelemetry,
+        "weave_otel": OpenTelemetry,
         "mlflow": MlflowLogger,
         "langfuse": LangfusePromptManagement,
         "otel": OpenTelemetry,
@@ -97,9 +98,6 @@ class CustomLoggerRegistry:
     }
 
     try:
-        from litellm_enterprise.enterprise_callbacks.generic_api_callback import (
-            GenericAPILogger,
-        )
         from litellm_enterprise.enterprise_callbacks.pagerduty.pagerduty import (
             PagerDutyAlerting,
         )
@@ -108,6 +106,10 @@ class CustomLoggerRegistry:
         )
         from litellm_enterprise.enterprise_callbacks.send_emails.smtp_email import (
             SMTPEmailLogger,
+        )
+
+        from litellm.integrations.generic_api.generic_api_callback import (
+            GenericAPILogger,
         )
 
         enterprise_loggers = {
