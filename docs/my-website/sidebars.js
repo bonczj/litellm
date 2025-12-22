@@ -16,6 +16,7 @@ const sidebars = {
   // // By default, Docusaurus generates a sidebar from the docs folder structure
   integrationsSidebar: [
     { type: "doc", id: "integrations/index" },
+    { type: "doc", id: "integrations/community" },
     {
       type: "category",
       label: "Observability",
@@ -41,6 +42,7 @@ const sidebars = {
       label: "Guardrails",
       items: [
         "proxy/guardrails/quick_start",
+        "proxy/guardrails/guardrail_load_balancing",
         {
           type: "category",
           "label": "Contributing to Guardrails",
@@ -51,6 +53,7 @@ const sidebars = {
           ]
         },
         "proxy/guardrails/test_playground",
+        "proxy/guardrails/litellm_content_filter",
         ...[
           "proxy/guardrails/aim_security",
           "proxy/guardrails/onyx_security",
@@ -60,8 +63,8 @@ const sidebars = {
           "proxy/guardrails/enkryptai",
           "proxy/guardrails/ibm_guardrails",
           "proxy/guardrails/grayswan",
+          "proxy/guardrails/hiddenlayer",
           "proxy/guardrails/lasso_security",
-          "proxy/guardrails/litellm_content_filter",
           "proxy/guardrails/guardrails_ai",
           "proxy/guardrails/lakera_ai",
           "proxy/guardrails/model_armor",
@@ -97,7 +100,8 @@ const sidebars = {
         "proxy/litellm_prompt_management",
         "proxy/custom_prompt_management",
         "proxy/native_litellm_prompt",
-        "proxy/prompt_management"
+        "proxy/prompt_management",
+        "proxy/arize_phoenix_prompts"
       ]
     },
     {
@@ -171,7 +175,7 @@ const sidebars = {
             {
               type: "link",
               label: "All Supported Endpoints →",
-              href: "/docs/supported_endpoints",
+              href: "https://docs.litellm.ai/docs/supported_endpoints",
             },
           ],
         },
@@ -285,7 +289,7 @@ const sidebars = {
           label: "All Endpoints (Swagger)",
           href: "https://litellm-api.up.railway.app/",
         },
-  "proxy/enterprise",
+        "proxy/enterprise",
         {
           type: "category",
           label: "Authentication",
@@ -408,7 +412,8 @@ const sidebars = {
           label: "/a2a - A2A Agent Gateway",
           items: [
             "a2a",
-            "a2a_agent_permissions",
+            "a2a_cost_tracking",
+            "a2a_agent_permissions"
           ],
         },
         "assistants",
@@ -429,6 +434,7 @@ const sidebars = {
           ]
         },
         "containers",
+        "container_files",
         {
           type: "category",
           label: "/chat/completions",
@@ -464,9 +470,10 @@ const sidebars = {
             "proxy/managed_finetuning",
           ]
         },
-          "generateContent",
-          "apply_guardrail",
-          "bedrock_invoke",
+        "generateContent",
+        "apply_guardrail",
+        "bedrock_invoke",
+        "interactions",
         {
           type: "category",
           label: "/images",
@@ -490,6 +497,7 @@ const sidebars = {
           ]
         },
         "anthropic_unified",
+        "anthropic_count_tokens",
         "moderation",
         "ocr",
         {
@@ -537,6 +545,7 @@ const sidebars = {
             "search/dataforseo",
             "search/firecrawl",
             "search/searxng",
+            "search/linkup",
           ]
         },
         "skills",
@@ -604,6 +613,7 @@ const sidebars = {
           label: "Azure AI",
           items: [
             "providers/azure_ai",
+            "providers/azure_ai_agents",
             "providers/azure_ocr",
             "providers/azure_document_intelligence",
             "providers/azure_ai_speech",
@@ -625,6 +635,7 @@ const sidebars = {
             "providers/vertex_speech",
             "providers/vertex_batch",
             "providers/vertex_ocr",
+            "providers/vertex_ai_agent_engine",
           ]
         },
         {
@@ -653,6 +664,7 @@ const sidebars = {
             "providers/bedrock_agents",
             "providers/bedrock_writer",
             "providers/bedrock_batches",
+            "providers/aws_polly",
             "providers/bedrock_vector_store",
           ]
         },
@@ -660,6 +672,7 @@ const sidebars = {
         "providers/ai21",
         "providers/aiml",
         "providers/aleph_alpha",
+        "providers/amazon_nova",
         "providers/anyscale",
         "providers/baseten",
         "providers/bytez",
@@ -702,6 +715,7 @@ const sidebars = {
         "providers/infinity",
         "providers/jina_ai",
         "providers/lambda_ai",
+        "providers/langgraph",
         "providers/lemonade",
         "providers/llamafile",
         "providers/lm_studio",
@@ -730,6 +744,7 @@ const sidebars = {
         "providers/petals",
         "providers/publicai",
         "providers/predibase",
+        "providers/pydantic_ai_agent",
         "providers/ragflow",
         "providers/recraft",
         "providers/replicate",
@@ -749,7 +764,14 @@ const sidebars = {
         "providers/triton-inference-server",
         "providers/v0",
         "providers/vercel_ai_gateway",
-        "providers/vllm",
+        {
+          type: "category",
+          label: "vLLM",
+          items: [
+            "providers/vllm",
+            "providers/vllm_batches",
+          ]
+        },
         "providers/volcano",
         "providers/voyage",
         "providers/wandb_inference",
@@ -762,6 +784,7 @@ const sidebars = {
           ]
         },
         "providers/xai",
+        "providers/xiaomi_mimo",
         "providers/xinference",
         "providers/zai",
       ],
@@ -781,6 +804,7 @@ const sidebars = {
         "completion/image_generation_chat",
         "completion/json_mode",
         "completion/knowledgebase",
+        "guides/code_interpreter",
         "completion/message_trimming",
         "completion/model_alias",
         "completion/mock_requests",

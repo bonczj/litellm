@@ -14,15 +14,15 @@ from litellm._logging import verbose_proxy_logger
 from litellm.proxy._types import *
 from litellm.proxy._types import ProviderBudgetResponse, ProviderBudgetResponseObject
 from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+from litellm.proxy.management_endpoints.common_utils import (
+    _is_user_team_admin,
+    _user_has_admin_view,
+)
 from litellm.proxy.spend_tracking.spend_tracking_utils import (
     get_spend_by_team_and_customer,
 )
 from litellm.proxy.utils import handle_exception_on_proxy
 from litellm.router_strategy.budget_limiter import RouterBudgetLimiting
-from litellm.proxy.management_endpoints.common_utils import (
-    _is_user_team_admin,
-    _user_has_admin_view,
-)
 
 if TYPE_CHECKING:
     from litellm.proxy.proxy_server import PrismaClient
@@ -2083,6 +2083,8 @@ async def view_spend_logs(  # noqa: PLR0915
                 query_type="find_all",
                 key_val={"key": "api_key", "value": hashed_token},
             )
+            if spend_log is None:
+                return []
             if isinstance(spend_log, list):
                 return spend_log
             else:
@@ -2093,6 +2095,8 @@ async def view_spend_logs(  # noqa: PLR0915
                 query_type="find_unique",
                 key_val={"key": "request_id", "value": request_id},
             )
+            if spend_log is None:
+                return []
             return [spend_log]
         elif user_id is not None:
             spend_log = await prisma_client.get_data(
@@ -2100,6 +2104,8 @@ async def view_spend_logs(  # noqa: PLR0915
                 query_type="find_all",
                 key_val={"key": "user", "value": user_id},
             )
+            if spend_log is None:
+                return []
             if isinstance(spend_log, list):
                 return spend_log
             else:

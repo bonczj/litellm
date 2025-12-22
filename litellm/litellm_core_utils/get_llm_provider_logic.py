@@ -5,6 +5,7 @@ import httpx
 import litellm
 from litellm.constants import REPLICATE_MODEL_NAME_WITH_ID_LENGTH
 from litellm.secret_managers.main import get_secret, get_secret_str
+from litellm.llms.openai_like.json_loader import JSONProviderRegistry
 
 from ..types.router import LiteLLM_Params
 
@@ -155,6 +156,17 @@ def get_llm_provider(  # noqa: PLR0915
 
         if api_key and api_key.startswith("os.environ/"):
             dynamic_api_key = get_secret_str(api_key)
+
+        # Check JSON-configured providers FIRST (before enum-based provider_list)
+        provider_prefix = model.split("/", 1)[0]
+        if len(model.split("/")) > 1 and JSONProviderRegistry.exists(provider_prefix):
+            return _get_openai_compatible_provider_info(
+                model=model,
+                api_base=api_base,
+                api_key=api_key,
+                dynamic_api_key=dynamic_api_key,
+            )
+
         # check if llm provider part of model name
 
         if (
@@ -872,6 +884,14 @@ def _get_openai_compatible_provider_info(  # noqa: PLR0915
             full_model, api_base, api_key, "ragflow"
         )
         model = full_model
+    elif custom_llm_provider == "langgraph":
+        # LangGraph is a custom provider, just need to set api_base
+        api_base = (
+            api_base
+            or get_secret_str("LANGGRAPH_API_BASE")
+            or "http://localhost:2024"
+        )
+        dynamic_api_key = api_key or get_secret_str("LANGGRAPH_API_KEY")
 
     if api_base is not None and not isinstance(api_base, str):
         raise Exception("api base needs to be a string. api_base={}".format(api_base))

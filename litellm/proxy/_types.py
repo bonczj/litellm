@@ -16,7 +16,11 @@ from typing_extensions import Required, TypedDict
 
 from litellm._uuid import uuid
 from litellm.types.integrations.slack_alerting import AlertType
-from litellm.types.llms.openai import AllMessageValues, OpenAIFileObject
+from litellm.types.llms.openai import (
+    AllMessageValues,
+    OpenAIFileObject,
+    ResponsesAPIResponse,
+)
 from litellm.types.mcp import (
     MCPAuth,
     MCPAuthType,
@@ -247,6 +251,7 @@ class LiteLLMRoutes(enum.Enum):
         "/openai/deployments/{model}/chat/completions",
         "/chat/completions",
         "/v1/chat/completions",
+        "/cursor/chat/completions",
         # completions
         "/engines/{model}/completions",
         "/openai/deployments/{model}/completions",
@@ -417,6 +422,13 @@ class LiteLLMRoutes(enum.Enum):
         "/models/{model_name}:countTokens",
         "/models/{model_name}:generateContent",
         "/models/{model_name}:streamGenerateContent",
+        # Google Interactions API
+        "/interactions",
+        "/v1beta/interactions",
+        "/interactions/{interaction_id}",
+        "/v1beta/interactions/{interaction_id}",
+        "/interactions/{interaction_id}/cancel",
+        "/v1beta/interactions/{interaction_id}/cancel",
     ]
 
     apply_guardrail_routes = [
@@ -546,6 +558,7 @@ class LiteLLMRoutes(enum.Enum):
     ui_routes = [
         "/sso",
         "/sso/get/ui_settings",
+        "/get/ui_settings",
         "/login",
         "/key/info",
         "/config",
@@ -1069,6 +1082,8 @@ class UpdateMCPServerRequest(LiteLLMPydanticObjectBase):
     url: Optional[str] = None
     mcp_info: Optional[MCPInfo] = None
     mcp_access_groups: List[str] = Field(default_factory=list)
+    allowed_tools: Optional[List[str]] = None
+    extra_headers: Optional[List[str]] = None
     static_headers: Optional[Dict[str, str]] = None
     # Stdio-specific fields
     command: Optional[str] = None
@@ -1127,6 +1142,60 @@ class LiteLLM_MCPServerTable(LiteLLMPydanticObjectBase):
 
 class MakeMCPServersPublicRequest(LiteLLMPydanticObjectBase):
     mcp_server_ids: List[str]
+
+
+######## Skills API Types ########
+
+
+class NewSkillRequest(LiteLLMPydanticObjectBase):
+    """Request to create a new skill in LiteLLM database"""
+
+    display_title: Optional[str] = None
+    description: Optional[str] = None
+    instructions: Optional[str] = None
+    file_content: Optional[bytes] = None  # Binary content of skill files (zip)
+    file_name: Optional[str] = None  # Original filename
+    file_type: Optional[str] = None  # MIME type (e.g., "application/zip")
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class UpdateSkillRequest(LiteLLMPydanticObjectBase):
+    """Request to update an existing skill"""
+
+    skill_id: str
+    display_title: Optional[str] = None
+    description: Optional[str] = None
+    instructions: Optional[str] = None
+    file_content: Optional[bytes] = None  # Binary content of skill files (zip)
+    file_name: Optional[str] = None  # Original filename
+    file_type: Optional[str] = None  # MIME type
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class LiteLLM_SkillsTable(LiteLLMPydanticObjectBase):
+    """Represents a LiteLLM_SkillsTable record"""
+
+    skill_id: str
+    display_title: Optional[str] = None
+    description: Optional[str] = None
+    instructions: Optional[str] = None
+    source: str = "custom"
+    latest_version: Optional[str] = None
+    file_content: Optional[bytes] = None  # Binary content of skill files (zip)
+    file_name: Optional[str] = None  # Original filename
+    file_type: Optional[str] = None  # MIME type
+    metadata: Optional[Dict[str, Any]] = None
+    created_at: Optional[datetime] = None
+    created_by: Optional[str] = None
+    updated_at: Optional[datetime] = None
+    updated_by: Optional[str] = None
+
+
+class ListSkillsRequest(LiteLLMPydanticObjectBase):
+    """Request to list skills from LiteLLM database"""
+
+    limit: Optional[int] = 20
+    offset: Optional[int] = 0
 
 
 class NewUserRequestTeam(LiteLLMPydanticObjectBase):
@@ -1382,6 +1451,7 @@ class NewTeamRequest(TeamBase):
     prompts: Optional[List[str]] = None
     object_permission: Optional[LiteLLM_ObjectPermissionBase] = None
     allowed_passthrough_routes: Optional[list] = None
+    secret_manager_settings: Optional[dict] = None
     model_rpm_limit: Optional[Dict[str, int]] = None
     rpm_limit_type: Optional[
         Literal["guaranteed_throughput", "best_effort_throughput"]
@@ -1448,6 +1518,8 @@ class UpdateTeamRequest(LiteLLMPydanticObjectBase):
     team_member_tpm_limit: Optional[int] = None
     team_member_key_duration: Optional[str] = None
     allowed_passthrough_routes: Optional[list] = None
+    secret_manager_settings: Optional[dict] = None
+    prompts: Optional[List[str]] = None
     model_rpm_limit: Optional[Dict[str, int]] = None
     model_tpm_limit: Optional[Dict[str, int]] = None
     allowed_vector_store_indexes: Optional[List[AllowedVectorStoreIndexItem]] = None
@@ -2471,6 +2543,7 @@ class CallInfo(LiteLLMPydanticObjectBase):
 class WebhookEvent(CallInfo):
     event: Literal[
         "budget_crossed",
+        "max_budget_alert",
         "soft_budget_crossed",
         "threshold_crossed",
         "projected_limit_exceeded",
@@ -2660,6 +2733,9 @@ class SpendLogsMetadata(TypedDict):
     cold_storage_object_key: Optional[
         str
     ]  # S3/GCS object key for cold storage retrieval
+    litellm_overhead_time_ms: Optional[
+        float
+    ]  # LiteLLM overhead time in milliseconds
 
 
 class SpendLogsPayload(TypedDict):
@@ -2677,6 +2753,7 @@ class SpendLogsPayload(TypedDict):
     model_id: Optional[str]
     model_group: Optional[str]
     mcp_namespaced_tool_name: Optional[str]
+    agent_id: Optional[str]
     api_base: str
     user: str
     metadata: str  # json str
@@ -3334,6 +3411,7 @@ LiteLLM_ManagementEndpoint_MetadataFields_Premium = [
     "team_member_key_duration",
     "prompts",
     "logging",
+    "secret_manager_settings",
     "allowed_passthrough_routes",
 ]
 
@@ -3652,6 +3730,9 @@ class DailyTagSpendTransaction(BaseDailySpendTransaction):
     request_id: Optional[str]
     tag: str
 
+class DailyAgentSpendTransaction(BaseDailySpendTransaction):
+    agent_id: str
+
 
 class DBSpendUpdateTransactions(TypedDict):
     """
@@ -3680,13 +3761,15 @@ class LiteLLM_ManagedFileTable(LiteLLMPydanticObjectBase):
     flat_model_file_ids: List[str]
     created_by: Optional[str]
     updated_by: Optional[str]
+    storage_backend: Optional[str] = None  
+    storage_url: Optional[str] = None 
 
 
 class LiteLLM_ManagedObjectTable(LiteLLMPydanticObjectBase):
     unified_object_id: str
     model_object_id: str
-    file_purpose: Literal["batch", "fine-tune"]
-    file_object: Union[LiteLLMBatch, LiteLLMFineTuningJob]
+    file_purpose: Literal["batch", "fine-tune", "response"]
+    file_object: Union[LiteLLMBatch, LiteLLMFineTuningJob, ResponsesAPIResponse]
 
 
 class EnterpriseLicenseData(TypedDict, total=False):
