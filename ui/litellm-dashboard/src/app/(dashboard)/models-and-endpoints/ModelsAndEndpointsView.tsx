@@ -152,12 +152,8 @@ const ModelsAndEndpointsView: React.FC<ModelDashboardProps> = ({
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
 
   const queryClient = useQueryClient();
-  const {
-    data: modelDataResponse,
-    isLoading: isLoadingModels,
-    refetch: refetchModels,
-  } = useModelsInfo(accessToken, userID, userRole);
-  const { data: credentialsResponse } = useCredentials(accessToken);
+  const { data: modelDataResponse, isLoading: isLoadingModels, refetch: refetchModels } = useModelsInfo();
+  const { data: credentialsResponse } = useCredentials();
   const credentialsList = credentialsResponse?.credentials || [];
   const { data: uiSettings } = useUISettings(accessToken || "");
 
@@ -540,21 +536,19 @@ const ModelsAndEndpointsView: React.FC<ModelDashboardProps> = ({
     );
   };
 
-  const handleOk = () => {
-    addModelForm
-      .validateFields()
-      .then((values: any) => {
-        handleAddModelSubmit(values, accessToken, addModelForm, handleRefreshClick);
-      })
-      .catch((error: any) => {
-        const errorMessages =
-          error.errorFields
-            ?.map((field: any) => {
-              return `${field.name.join(".")}: ${field.errors.join(", ")}`;
-            })
-            .join(" | ") || "Unknown validation error";
-        NotificationsManager.fromBackend(`Please fill in the following required fields: ${errorMessages}`);
-      });
+  const handleOk = async () => {
+    try {
+      const values = await addModelForm.validateFields();
+      await handleAddModelSubmit(values, accessToken, addModelForm, handleRefreshClick);
+    } catch (error: any) {
+      const errorMessages =
+        error.errorFields
+          ?.map((field: any) => {
+            return `${field.name.join(".")}: ${field.errors.join(", ")}`;
+          })
+          .join(" | ") || "Unknown validation error";
+      NotificationsManager.fromBackend(`Please fill in the following required fields: ${errorMessages}`);
+    }
   };
 
   Object.keys(Providers).find((key) => (Providers as { [index: string]: any })[key] === selectedProvider);
@@ -665,7 +659,6 @@ const ModelsAndEndpointsView: React.FC<ModelDashboardProps> = ({
                   setSelectedModelId={setSelectedModelId}
                   setSelectedTeamId={setSelectedTeamId}
                   setEditModel={setEditModel}
-                  modelData={modelData}
                 />
                 {!shouldHideAddModelTab && (
                   <TabPanel className="h-full">
@@ -684,7 +677,6 @@ const ModelsAndEndpointsView: React.FC<ModelDashboardProps> = ({
                       credentials={credentialsList}
                       accessToken={accessToken}
                       userRole={userRole}
-                      premiumUser={premiumUser}
                     />
                   </TabPanel>
                 )}
