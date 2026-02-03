@@ -10,6 +10,7 @@ import {
   FilePdfOutlined,
   InfoCircleOutlined,
   KeyOutlined,
+  LinkOutlined,
   LoadingOutlined,
   PictureOutlined,
   RobotOutlined,
@@ -29,34 +30,34 @@ import { coy } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { v4 as uuidv4 } from "uuid";
 import { truncateString } from "../../../utils/textUtils";
 import GuardrailSelector from "../../guardrails/GuardrailSelector";
+import PolicySelector from "../../policies/PolicySelector";
+import { MCPServer } from "../../mcp_tools/types";
 import NotificationsManager from "../../molecules/notifications_manager";
+import { fetchMCPServers, listMCPTools } from "../../networking";
 import TagSelector from "../../tag_management/TagSelector";
 import VectorStoreSelector from "../../vector_store_management/VectorStoreSelector";
+import { makeA2ASendMessageRequest } from "../llm_calls/a2a_send_message";
+import { makeAnthropicMessagesRequest } from "../llm_calls/anthropic_messages";
+import { makeOpenAIAudioSpeechRequest } from "../llm_calls/audio_speech";
+import { makeOpenAIAudioTranscriptionRequest } from "../llm_calls/audio_transcriptions";
+import { makeOpenAIChatCompletionRequest } from "../llm_calls/chat_completion";
+import { makeOpenAIEmbeddingsRequest } from "../llm_calls/embeddings_api";
+import { Agent, fetchAvailableAgents } from "../llm_calls/fetch_agents";
+import { fetchAvailableModels, ModelGroup } from "../llm_calls/fetch_models";
+import { makeOpenAIImageEditsRequest } from "../llm_calls/image_edits";
+import { makeOpenAIImageGenerationRequest } from "../llm_calls/image_generation";
+import { makeOpenAIResponsesRequest } from "../llm_calls/responses_api";
+import A2AMetrics from "./A2AMetrics";
 import AdditionalModelSettings from "./AdditionalModelSettings";
 import AudioRenderer from "./AudioRenderer";
 import { OPEN_AI_VOICE_SELECT_OPTIONS, OpenAIVoice } from "./chatConstants";
 import ChatImageRenderer from "./ChatImageRenderer";
 import ChatImageUpload from "./ChatImageUpload";
 import { createChatDisplayMessage, createChatMultimodalMessage } from "./ChatImageUtils";
+import CodeInterpreterOutput from "./CodeInterpreterOutput";
+import CodeInterpreterTool from "./CodeInterpreterTool";
 import { generateCodeSnippet } from "./CodeSnippets";
 import EndpointSelector from "./EndpointSelector";
-import { makeAnthropicMessagesRequest } from "../llm_calls/anthropic_messages";
-import { makeOpenAIAudioSpeechRequest } from "../llm_calls/audio_speech";
-import { makeOpenAIAudioTranscriptionRequest } from "../llm_calls/audio_transcriptions";
-import { makeOpenAIChatCompletionRequest } from "../llm_calls/chat_completion";
-import { makeOpenAIEmbeddingsRequest } from "../llm_calls/embeddings_api";
-import { listMCPTools, fetchMCPServers } from "../../networking";
-import { MCPServer } from "../../mcp_tools/types";
-import { fetchAvailableModels, ModelGroup } from "../llm_calls/fetch_models";
-import { makeOpenAIImageEditsRequest } from "../llm_calls/image_edits";
-import { makeOpenAIImageGenerationRequest } from "../llm_calls/image_generation";
-import { makeOpenAIResponsesRequest } from "../llm_calls/responses_api";
-import CodeInterpreterOutput from "./CodeInterpreterOutput";
-import { useCodeInterpreter } from "./useCodeInterpreter";
-import { Agent, fetchAvailableAgents } from "../llm_calls/fetch_agents";
-import { makeA2AStreamMessageRequest } from "../llm_calls/a2a_send_message";
-import A2AMetrics from "./A2AMetrics";
-import { A2ATaskMetadata } from "./types";
 import MCPEventsDisplay, { MCPEvent } from "./MCPEventsDisplay";
 import { EndpointType, getEndpointType } from "./mode_endpoint_mapping";
 import ReasoningContent from "./ReasoningContent";
@@ -66,8 +67,8 @@ import ResponsesImageUpload from "./ResponsesImageUpload";
 import { createDisplayMessage, createMultimodalMessage } from "./ResponsesImageUtils";
 import { SearchResultsDisplay } from "./SearchResultsDisplay";
 import SessionManagement from "./SessionManagement";
-import { MessageType } from "./types";
-import CodeInterpreterTool from "./CodeInterpreterTool";
+import { A2ATaskMetadata, MessageType } from "./types";
+import { useCodeInterpreter } from "./useCodeInterpreter";
 
 const { TextArea } = Input;
 const { Dragger } = Upload;
@@ -188,6 +189,15 @@ const ChatUI: React.FC<ChatUIProps> = ({
       return [];
     }
   });
+  const [selectedPolicies, setSelectedPolicies] = useState<string[]>(() => {
+    const saved = sessionStorage.getItem("selectedPolicies");
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+      console.error("Error parsing selectedPolicies from sessionStorage", error);
+      return [];
+    }
+  });
   const [messageTraceId, setMessageTraceId] = useState<string | null>(
     () => sessionStorage.getItem("messageTraceId") || null,
   );
@@ -261,6 +271,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
         selectedTags,
         selectedVectorStores,
         selectedGuardrails,
+        selectedPolicies,
         selectedMCPServers,
         mcpServers,
         mcpServerToolRestrictions,
@@ -283,6 +294,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
     selectedTags,
     selectedVectorStores,
     selectedGuardrails,
+    selectedPolicies,
     selectedMCPServers,
     mcpServers,
     mcpServerToolRestrictions,
@@ -308,6 +320,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
     sessionStorage.setItem("selectedTags", JSON.stringify(selectedTags));
     sessionStorage.setItem("selectedVectorStores", JSON.stringify(selectedVectorStores));
     sessionStorage.setItem("selectedGuardrails", JSON.stringify(selectedGuardrails));
+    sessionStorage.setItem("selectedPolicies", JSON.stringify(selectedPolicies));
     sessionStorage.setItem("selectedMCPServers", JSON.stringify(selectedMCPServers));
     sessionStorage.setItem("mcpServerToolRestrictions", JSON.stringify(mcpServerToolRestrictions));
     sessionStorage.setItem("selectedVoice", selectedVoice);
@@ -338,6 +351,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
     selectedTags,
     selectedVectorStores,
     selectedGuardrails,
+    selectedPolicies,
     messageTraceId,
     responsesSessionId,
     useApiSessionManagement,
@@ -607,12 +621,16 @@ const ChatUI: React.FC<ChatUIProps> = ({
     console.log("ChatUI: Received MCP event:", event);
     setMCPEvents((prev) => {
       // Check if this is a duplicate event (same item_id and type)
-      const isDuplicate = prev.some(
-        (existingEvent) =>
-          existingEvent.item_id === event.item_id &&
-          existingEvent.type === event.type &&
-          existingEvent.sequence_number === event.sequence_number,
-      );
+      // Only check for duplicates if item_id is defined (for mcp_list_tools, item_id is "mcp_list_tools")
+      const isDuplicate = event.item_id
+        ? prev.some(
+            (existingEvent) =>
+              existingEvent.item_id === event.item_id &&
+              existingEvent.type === event.type &&
+              (existingEvent.sequence_number === event.sequence_number ||
+                (existingEvent.sequence_number === undefined && event.sequence_number === undefined)),
+          )
+        : false;
 
       if (isDuplicate) {
         console.log("ChatUI: Duplicate MCP event, skipping");
@@ -893,6 +911,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
             traceId,
             selectedVectorStores.length > 0 ? selectedVectorStores : undefined,
             selectedGuardrails.length > 0 ? selectedGuardrails : undefined,
+            selectedPolicies.length > 0 ? selectedPolicies : undefined,
             selectedMCPServers,
             updateChatImageUI,
             updateSearchResults,
@@ -902,6 +921,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
             customProxyBaseUrl || undefined,
             mcpServers,
             mcpServerToolRestrictions,
+            handleMCPEvent,
           );
         } else if (endpointType === EndpointType.IMAGE) {
           // For image generation
@@ -972,6 +992,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
             traceId,
             selectedVectorStores.length > 0 ? selectedVectorStores : undefined,
             selectedGuardrails.length > 0 ? selectedGuardrails : undefined,
+            selectedPolicies.length > 0 ? selectedPolicies : undefined,
             selectedMCPServers, // Pass the selected servers array
             useApiSessionManagement ? responsesSessionId : null, // Only pass session ID if API mode is enabled
             handleResponseId, // Pass callback to capture new response ID
@@ -1003,6 +1024,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
             traceId,
             selectedVectorStores.length > 0 ? selectedVectorStores : undefined,
             selectedGuardrails.length > 0 ? selectedGuardrails : undefined,
+            selectedPolicies.length > 0 ? selectedPolicies : undefined,
             selectedMCPServers, // Pass the selected tools array
             customProxyBaseUrl || undefined,
           );
@@ -1037,7 +1059,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
 
       // Handle A2A agent calls (separate from model-based calls) - use streaming
       if (endpointType === EndpointType.A2A_AGENTS && selectedAgent) {
-        await makeA2AStreamMessageRequest(
+        await makeA2ASendMessageRequest(
           selectedAgent,
           inputMessage,
           (chunk, model) => updateTextUI("assistant", chunk, model),
@@ -1173,9 +1195,23 @@ const ChatUI: React.FC<ChatUIProps> = ({
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <Text className="font-medium text-gray-700 flex items-center">
+                  <Text className="font-medium block text-gray-700 flex items-center">
                     <SettingOutlined className="mr-2" /> Custom Proxy Base URL
                   </Text>
+                  {proxySettings?.LITELLM_UI_API_DOC_BASE_URL && !customProxyBaseUrl && (
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<LinkOutlined />}
+                      onClick={() => {
+                        setCustomProxyBaseUrl(proxySettings.LITELLM_UI_API_DOC_BASE_URL || "");
+                        sessionStorage.setItem("customProxyBaseUrl", proxySettings.LITELLM_UI_API_DOC_BASE_URL || "");
+                      }}
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      Fill
+                    </Button>
+                  )}
                   {customProxyBaseUrl && (
                     <Button
                       type="link"
@@ -1220,7 +1256,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
                     try {
                       sessionStorage.removeItem("selectedModel");
                       sessionStorage.removeItem("selectedAgent");
-                    } catch {}
+                    } catch { }
                   }}
                   className="mb-4"
                 />
@@ -1568,6 +1604,32 @@ const ChatUI: React.FC<ChatUIProps> = ({
                 />
               </div>
 
+              <div>
+                <Text className="font-medium block mb-2 text-gray-700 flex items-center">
+                  <SafetyOutlined className="mr-2" /> Policies
+                  <Tooltip
+                    className="ml-1"
+                    title={
+                      <span>
+                        Select policy/policies to apply to this LLM API call. Policies define which guardrails are applied based on conditions. You can set up your policies{" "}
+                        <a href="?page=policies" style={{ color: "#1890ff" }}>
+                          here
+                        </a>
+                        .
+                      </span>
+                    }
+                  >
+                    <InfoCircleOutlined />
+                  </Tooltip>
+                </Text>
+                <PolicySelector
+                  value={selectedPolicies}
+                  onChange={setSelectedPolicies}
+                  className="mb-4"
+                  accessToken={accessToken || ""}
+                />
+              </div>
+
               {/* Code Interpreter Toggle - Only for Responses endpoint */}
               {endpointType === EndpointType.RESPONSES && (
                 <div>
@@ -1576,7 +1638,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
                     enabled={codeInterpreter.enabled}
                     onEnabledChange={codeInterpreter.setEnabled}
                     selectedContainerId={null}
-                    onContainerChange={() => {}}
+                    onContainerChange={() => { }}
                     selectedModel={selectedModel || ""}
                   />
                 </div>
@@ -1650,7 +1712,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
                       {message.role === "assistant" &&
                         index === chatHistory.length - 1 &&
                         mcpEvents.length > 0 &&
-                        endpointType === EndpointType.RESPONSES && (
+                        (endpointType === EndpointType.RESPONSES || endpointType === EndpointType.CHAT) && (
                           <div className="mb-3">
                             <MCPEventsDisplay events={mcpEvents} />
                           </div>
@@ -1783,7 +1845,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
               {/* Show MCP events during loading if no assistant message exists yet */}
               {isLoading &&
                 mcpEvents.length > 0 &&
-                endpointType === EndpointType.RESPONSES &&
+                (endpointType === EndpointType.RESPONSES || endpointType === EndpointType.CHAT) &&
                 chatHistory.length > 0 &&
                 chatHistory[chatHistory.length - 1].role === "user" && (
                   <div className="text-left mb-4">
@@ -2072,11 +2134,10 @@ const ChatUI: React.FC<ChatUIProps> = ({
                         }
                       >
                         <button
-                          className={`p-1.5 rounded-md transition-colors ${
-                            codeInterpreter.enabled
-                              ? "bg-blue-100 text-blue-600"
-                              : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                          }`}
+                          className={`p-1.5 rounded-md transition-colors ${codeInterpreter.enabled
+                            ? "bg-blue-100 text-blue-600"
+                            : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                            }`}
                           onClick={() => {
                             codeInterpreter.toggle();
                             if (!codeInterpreter.enabled) {
@@ -2097,9 +2158,9 @@ const ChatUI: React.FC<ChatUIProps> = ({
                     onKeyDown={handleKeyDown}
                     placeholder={
                       endpointType === EndpointType.CHAT ||
-                      endpointType === EndpointType.EMBEDDINGS ||
-                      endpointType === EndpointType.RESPONSES ||
-                      endpointType === EndpointType.ANTHROPIC_MESSAGES
+                        endpointType === EndpointType.EMBEDDINGS ||
+                        endpointType === EndpointType.RESPONSES ||
+                        endpointType === EndpointType.ANTHROPIC_MESSAGES
                         ? "Type your message... (Shift+Enter for new line)"
                         : endpointType === EndpointType.A2A_AGENTS
                           ? "Send a message to the A2A agent..."
