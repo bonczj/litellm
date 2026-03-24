@@ -1,0 +1,21 @@
+# Multi-stage approach with published base image
+ARG BASE_TAG=latest
+FROM litellm/litellm:${BASE_TAG}
+
+USER root
+
+# Install New Relic agent
+RUN pip install --no-cache-dir 'newrelic>=11.2.0,<13'
+
+# Copy New Relic-specific configuration files
+# Note: Files are in docker/ directory (flat structure, not docker/newrelic/)
+COPY docker/supervisord_newrelic.conf /etc/supervisord_newrelic.conf
+COPY docker/newrelic_entrypoint.sh /app/docker/newrelic_entrypoint.sh
+RUN chmod +x /app/docker/newrelic_entrypoint.sh
+
+# Override entrypoint to always use newrelic-admin
+ENTRYPOINT ["/app/docker/newrelic_entrypoint.sh"]
+
+# Metadata
+LABEL org.opencontainers.image.description="LiteLLM with New Relic APM and AI monitoring"
+LABEL org.opencontainers.image.documentation="https://docs.litellm.ai/docs/proxy/observability/new_relic"
